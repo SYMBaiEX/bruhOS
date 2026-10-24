@@ -227,3 +227,9 @@ points — rules in [CONTRIBUTING.md](CONTRIBUTING.md), live board at
 
 Apache-2.0. See [LICENSE](LICENSE). Third-party models and datasets keep their own licenses;
 non-commercial datasets are not used in the default product path.
+
+## Local trace dashboard
+
+Run `bruhos dashboard --traces traces` and open http://127.0.0.1:8765/ to inspect
+saved runtime episodes and hash-chain verification results. See the
+[dashboard guide](bruhos/dashboard/README.md) for usage and verification limits.
