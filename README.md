@@ -194,7 +194,7 @@ bruhos dashboard --traces traces
 ```
 
 `--brain rules` makes this first check offline; omit it to use configured Qwen-VL.
-The [dashboard PR](https://github.com/bruhosdotai/bruhOS/pull/1) provides the second
+The [dashboard PR](https://github.com/bruhosdotai/bruhOS/pull/3) provides the second
 command at http://127.0.0.1:8765/; otherwise use `bruhos verify <episode-directory>`.
 Only bruhOS commands produce these traces, not stock app/demo activity.
 
