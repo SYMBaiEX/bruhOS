@@ -161,7 +161,7 @@ connection. On the Pi, from a bruhOS checkout:
 
 ```sh
 python3 -m venv --system-site-packages .venv && . .venv/bin/activate
-pip install -e ".[vision]"
+pip install -e ".[vision,imu]"
 mkdir -p ~/.config/bruhos
 cp -n configs/tonypi_pro.toml ~/.config/bruhos/tonypi.toml
 bruhos check-tonypi --config ~/.config/bruhos/tonypi.toml
