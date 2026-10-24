@@ -47,6 +47,7 @@ class Observation:
     imu: Imu = field(default_factory=Imu)
     line: LineReading = field(default_factory=LineReading)
     holding: str | None = None
+    sensors: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def find(self, target: str) -> Detection | None:
         hits = [d for d in self.objects if d.matches(target)]
@@ -68,4 +69,5 @@ class Observation:
             imu=Imu(**d.get("imu", {})),
             line=LineReading(**d.get("line", {})),
             holding=d.get("holding"),
+            sensors=d.get("sensors", {}),
         )

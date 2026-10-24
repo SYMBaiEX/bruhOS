@@ -17,6 +17,14 @@ def _fallen(obs: Observation) -> Outcome | None:
     return None
 
 
+def _act(ctx, primitive):
+    if ctx.body.act(primitive):
+        return None
+    if ctx.should_stop():
+        return Outcome(Status.STOPPED, "stop requested")
+    return _fallen(ctx.body.observe()) or Outcome(Status.FAILED, f"{primitive} failed")
+
+
 def _scan(ctx: SkillContext, target: str) -> tuple[Outcome | None, Observation]:
     """Turn in place until ``target`` is in view. One full revolution at most."""
     obs = ctx.body.observe()
@@ -28,7 +36,8 @@ def _scan(ctx: SkillContext, target: str) -> tuple[Outcome | None, Observation]:
             return None, obs
         if ctx.should_stop():
             return Outcome(Status.STOPPED, "stop requested"), obs
-        ctx.body.act("turn_left")
+        if (err := _act(ctx, "turn_left")):
+            return err, obs
         obs = ctx.body.observe()
     if (f := _fallen(obs)):
         return f, obs
@@ -70,7 +79,8 @@ def look_at(ctx: SkillContext, args: dict) -> Outcome:
             return Outcome(Status.FAILED, f"lost {target}")
         if abs(d.bearing_deg) <= AIM_DEG:
             return Outcome(Status.OK, f"facing {d.name}", {"bearing_deg": d.bearing_deg})
-        ctx.body.act("turn_left" if d.bearing_deg > 0 else "turn_right")
+        if (err := _act(ctx, "turn_left" if d.bearing_deg > 0 else "turn_right")):
+            return err
         obs = ctx.body.observe()
     return Outcome(Status.FAILED, "aim timeout")
 
@@ -97,9 +107,11 @@ def walk_toward(ctx: SkillContext, args: dict) -> Outcome:
         if d.distance_m is not None and d.distance_m <= stop_at:
             return Outcome(Status.OK, f"reached {d.name}", {"distance_m": d.distance_m})
         if abs(d.bearing_deg) > WALK_AIM_DEG:
-            ctx.body.act("turn_left" if d.bearing_deg > 0 else "turn_right")
+            if (err := _act(ctx, "turn_left" if d.bearing_deg > 0 else "turn_right")):
+                return err
         else:
-            ctx.body.act("forward")
+            if (err := _act(ctx, "forward")):
+                return err
         obs = ctx.body.observe()
     return Outcome(Status.FAILED, "walk timeout")
 
@@ -117,11 +129,14 @@ def follow_line(ctx: SkillContext, args: dict) -> Outcome:
         if ctx.should_stop():
             return Outcome(Status.STOPPED, "stop requested")
         if obs.line.offset > LINE_DEADBAND:
-            ctx.body.act("turn_right")
+            if (err := _act(ctx, "turn_right")):
+                return err
         elif obs.line.offset < -LINE_DEADBAND:
-            ctx.body.act("turn_left")
+            if (err := _act(ctx, "turn_left")):
+                return err
         else:
-            ctx.body.act("forward")
+            if (err := _act(ctx, "forward")):
+                return err
             done += 1
         obs = ctx.body.observe()
         if (f := _fallen(obs)):
@@ -152,14 +167,16 @@ def release(ctx: SkillContext, args: dict) -> Outcome:
 @skill(SkillSpec("kick", "Kick with the given foot.",
                  {"foot": Arg(str, default="right", choices=("left", "right"))}, positional="foot"))
 def kick(ctx: SkillContext, args: dict) -> Outcome:
-    ctx.body.act(f"kick_{args['foot']}")
+    if (err := _act(ctx, f"kick_{args['foot']}")):
+        return err
     obs = ctx.body.observe()
     return _fallen(obs) or Outcome(Status.OK, f"kicked {args['foot']}")
 
 
 @skill(SkillSpec("wave", "Wave hello."))
 def wave(ctx: SkillContext, args: dict) -> Outcome:
-    ctx.body.act("wave")
+    if (err := _act(ctx, "wave")):
+        return err
     obs = ctx.body.observe()
     return _fallen(obs) or Outcome(Status.OK, "waved")
 

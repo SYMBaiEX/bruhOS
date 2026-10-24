@@ -155,16 +155,55 @@ GR00T action chunk → 16 servos is a wrong integration and is rejected.
 
 ## On a TonyPi
 
-```bash
-# on the robot (Raspberry Pi 5)
-pip install -e ".[vision,imu]"
-bruhos run "Wave hello." --body tonypi --config configs/tonypi.toml
+Use Hiwonder's existing Pi image, SDK and action files. `tonypi.toml` is the generic
+example; `tonypi_pro.toml` uses the Pro 5 controller's IMU without a second serial
+connection. On the Pi, from a bruhOS checkout:
+
+```sh
+python3 -m venv --system-site-packages .venv && . .venv/bin/activate
+pip install -e ".[vision]"
+mkdir -p ~/.config/bruhos
+cp -n configs/tonypi_pro.toml ~/.config/bruhos/tonypi.toml
+bruhos check-tonypi --config ~/.config/bruhos/tonypi.toml
 ```
 
-Before the first run, open `configs/tonypi.toml` (or `tonypi_pro.toml`) and check every name under
-`[actions]` against the `ActionGroups/` directory on your robot, plus `sdk_path` for the Hiwonder
-SDK. Unmapped primitives (e.g. `grab` on a TonyPi without hands) make the skill return `failed`
-instead of guessing.
+Check `sdk_path`, `action_path` and every `[actions]` mapping against your image.
+The file check does not open hardware or move the robot; missing unrelated groups
+do not block an available action. Qwen-VL, camera, speech and runtime defaults are
+preserved. Set `[brain].base_url` and `model` for your server. The original I²C IMU
+is available with `driver = "i2c"` and the `.[imu]` extra.
+
+Before opening hardware, record which controllers are active. Stop Ari first if
+installed, then active stock services; close other vendor demos/apps too:
+
+```sh
+systemctl --user stop tonypi-voice.service # only if active
+sudo systemctl stop tonypi.service joystick.service # only those active
+bruhos check-tonypi --config ~/.config/bruhos/tonypi.toml --sensors
+```
+
+With Tony upright on a clear, level surface, confirm fresh IMU readings and correct
+roll/pitch. Pro 5 uses negative X upright and Z forward; verify on your unit, measure
+any zero offsets locally, then set `imu.upright_reference_verified = true`. The
+adapter refuses known active controllers and unverified/stale IMU data. It never
+changes services itself. Other apps must stay closed while bruhOS owns the hardware.
+
+```sh
+bruhos run "Wave hello." --body tonypi --brain rules --config ~/.config/bruhos/tonypi.toml --traces traces
+bruhos dashboard --traces traces
+```
+
+`--brain rules` makes this first check offline; omit it to use configured Qwen-VL.
+The [dashboard PR](https://github.com/bruhosdotai/bruhOS/pull/1) provides the second
+command at http://127.0.0.1:8765/; otherwise use `bruhos verify <episode-directory>`.
+Only bruhOS commands produce these traces, not stock app/demo activity.
+
+Only wave has passed physical acceptance on our Pro 5. Other actions and front/back
+recovery mappings need per-robot commissioning: existing automatic recovery remains
+enabled. Ctrl+C requests a vendor stop without an implicit stand pose; SDK exceptions
+latch stop to prevent replaying a partial action. After the CLI exits, restore only
+previously active stock services, then Ari if it was active. Ari's source, settings,
+services and desktop controls are unchanged.
 
 ## Skills (v0.1)
 
