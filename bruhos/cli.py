@@ -54,11 +54,13 @@ def cmd_run(a: argparse.Namespace) -> int:
     SpeechConfig(**cfg.get("speech", {}))
     body = _body(a.body, cfg, a.fall_prob, a.seed)
     sinks = SinkDispatcher([LocalSink(a.traces or cfg.get("trace", {}).get("root", "traces"))])
-    rt = Runtime(body, _brain(a.brain, cfg), sinks)
+    rt = None
     try:
+        rt = Runtime(body, _brain(a.brain, cfg), sinks)
         ep = rt.run(a.instruction)
     except KeyboardInterrupt:
-        rt.stop()
+        if rt is not None:
+            rt.stop()
         return 130
     finally:
         sinks.flush(5)
@@ -112,6 +114,26 @@ def cmd_lerobot(a: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_check_tonypi(a: argparse.Namespace) -> int:
+    from bruhos.body.tonypi import check_actions, TonyPiBody
+
+    cfg = _load_config(a.config)
+    actions = check_actions(cfg)
+    result = {'actions': actions}
+    ready = bool(actions) and all(actions.values())
+    if a.sensors:
+        body = TonyPiBody(cfg)
+        try:
+            observation = body.observe()
+            result['observation'] = observation.to_dict()
+            result['upright_reference_verified'] = body.imu_verified
+            ready = ready and observation.sensors.get('imu', {}).get('valid', False) and not observation.imu.fallen
+        finally:
+            body.close()
+    print(json.dumps(result, indent=2))
+    return 0 if ready else 1
+
+
 def cmd_dashboard(a: argparse.Namespace) -> int:
     from bruhos.dashboard import serve
 
@@ -150,6 +172,11 @@ def main(argv: list[str] | None = None) -> int:
     lr = sub.add_parser("lerobot", help="print LeRobot-aligned frames for a trace")
     lr.add_argument("path")
     lr.set_defaults(fn=cmd_lerobot)
+
+    check = sub.add_parser("check-tonypi", help="check vendor action files without movement")
+    check.add_argument("--config", required=True)
+    check.add_argument("--sensors", action="store_true", help="also open sensors; requires exclusive controller access")
+    check.set_defaults(fn=cmd_check_tonypi)
 
     dashboard = sub.add_parser("dashboard", help="inspect saved traces in a local read-only console")
     dashboard.add_argument("--traces", default="traces", help="runtime trace directory")
